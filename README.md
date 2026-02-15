@@ -2,6 +2,32 @@
 
 A comprehensive backend service for managing aircraft scheduling, flight logs, and member billing for a flying club.
 
+## Project Structure
+
+```
+flying-club-api/
+├── src/                    # Application source code
+│   ├── app.js             # Express app setup and route definitions
+│   ├── config/            # Configuration files
+│   │   └── database.js    # PostgreSQL connection pool
+│   ├── controllers/       # Route handlers
+│   │   └── authController.js
+│   ├── middleware/        # Custom middleware
+│   │   └── auth.js        # JWT authentication middleware
+│   ├── routes/            # Route definitions
+│   │   └── userRoutes.js
+│   └── utils/             # Utility functions (for future use)
+├── db/                    # Database-related files
+│   ├── schema.sql         # Database schema
+│   └── sample-data.sql    # Sample data for testing
+├── test/                  # Test files and scripts
+│   └── auth-curl-example.sh
+├── index.js               # Application entry point
+├── package.json           # Dependencies and scripts
+├── .env.example           # Environment variables template
+└── README.md              # This file
+```
+
 ## Features
 
 - **Member Management**: CRUD operations for club members
@@ -42,16 +68,21 @@ createdb flying_club
 
 3. Run the schema setup:
 ```bash
-psql -d flying_club -f schema.sql
+psql -d flying_club -f db/schema.sql
 ```
 
-4. Configure environment variables:
+4. (Optional) Load sample data:
+```bash
+psql -d flying_club -f db/sample-data.sql
+```
+
+5. Configure environment variables:
 ```bash
 cp .env.example .env
-# Edit .env with your database credentials
+# Edit .env with your database credentials and JWT_SECRET
 ```
 
-5. Start the server:
+6. Start the server:
 ```bash
 npm start
 # or for development with auto-reload:
@@ -399,6 +430,41 @@ curl -X PUT http://localhost:3000/api/billing/1/pay
 curl http://localhost:3000/api/billing/summary/1
 # Returns total hours flown, amount owed, amount paid, etc.
 ```
+
+## Authentication
+
+This API uses JWT authentication for protected endpoints.
+
+Environment variables (minimum):
+
+- `JWT_SECRET` — secret used to sign tokens
+- `DB_USER`, `DB_HOST`, `DB_NAME`, `DB_PASSWORD`, `DB_PORT` — Postgres connection
+
+Auth endpoints:
+
+- `POST /api/users/register` — register a new member. Required fields: `first_name`, `last_name`, `email`, `password`.
+- `POST /api/users/login` — returns `{ token }` when successful.
+- `GET /api/users/profile` — protected route; include header `Authorization: Bearer <token>`.
+
+Quick curl example:
+
+```bash
+# Register
+curl -X POST http://localhost:3000/api/users/register \
+  -H "Content-Type: application/json" \
+  -d '{"first_name":"Test","last_name":"User","email":"test@example.com","password":"password123"}'
+
+# Login
+curl -X POST http://localhost:3000/api/users/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@example.com","password":"password123"}'
+
+# Access protected profile (replace <token> with login token)
+curl -H "Authorization: Bearer <token>" http://localhost:3000/api/users/profile
+```
+
+You can also run the provided script `test/auth-curl-example.sh` for testing auth endpoints.
+
 
 ## Data Models
 
