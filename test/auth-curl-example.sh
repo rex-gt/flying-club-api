@@ -24,6 +24,7 @@ fi
 echo "Using token: $TOKEN"
 
 echo "\n"
+
 # 3) Get profile
 curl -s -X GET "$BASE_URL/profile" -H "Authorization: Bearer $TOKEN"
 
