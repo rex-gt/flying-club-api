@@ -1,5 +1,6 @@
 const express = require('express');
 const userRoutes = require('./routes/userRoutes');
+const memberRoutes = require('./routes/memberRoutes');
 const pool = require('./config/database');
 const bodyParser = require('body-parser');
 
@@ -11,6 +12,7 @@ app.use(bodyParser.json());
 
 // Routes
 app.use('/api/users', userRoutes);
+app.use('/api/members', memberRoutes);
 
 // Middleware for error handling
 const asyncHandler = (fn) => (req, res, next) => {
@@ -19,13 +21,6 @@ const asyncHandler = (fn) => (req, res, next) => {
 
 
 // ============ MEMBERS ENDPOINTS ============
-
-app.get('/api/members', asyncHandler(async (req, res) => {
-  const result = await pool.query(
-    'SELECT * FROM members ORDER BY last_name, first_name'
-  );
-  res.json(result.rows);
-}));
 
 app.get('/api/members/:id', asyncHandler(async (req, res) => {
   const { id } = req.params;
