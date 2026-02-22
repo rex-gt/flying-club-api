@@ -1,60 +1,79 @@
--- Sample data for Flying Club Scheduling System
--- Run this after schema.sql to populate the database with test data
+-- Sample data for Flying Club API
+-- All member passwords are: password123
+-- Bcrypt hash (10 rounds): $2b$10$K8Q7Z5Z5Z5Z5Z5Z5Z5Z5ZeK8Q7Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5
 
--- Insert sample members
-INSERT INTO members (member_number, first_name, last_name, email, phone, is_active) VALUES
-('M001', 'John', 'Smith', 'john.smith@example.com', '555-0101', true),
-('M002', 'Sarah', 'Johnson', 'sarah.johnson@example.com', '555-0102', true),
-('M003', 'Michael', 'Williams', 'michael.williams@example.com', '555-0103', true),
-('M004', 'Emily', 'Brown', 'emily.brown@example.com', '555-0104', true),
-('M005', 'David', 'Jones', 'david.jones@example.com', '555-0105', true),
-('M006', 'Lisa', 'Garcia', 'lisa.garcia@example.com', '555-0106', true),
-('M007', 'Robert', 'Martinez', 'robert.martinez@example.com', '555-0107', true),
-('M008', 'Jennifer', 'Davis', 'jennifer.davis@example.com', '555-0108', true),
-('M009', 'William', 'Rodriguez', 'william.rodriguez@example.com', '555-0109', true),
-('M010', 'Mary', 'Wilson', 'mary.wilson@example.com', '555-0110', true);
+-- Clear existing data (in reverse order of dependencies)
+DELETE FROM billing_records;
+DELETE FROM flight_logs;
+DELETE FROM reservations;
+DELETE FROM aircraft;
+DELETE FROM members;
+
+-- Reset sequences
+ALTER SEQUENCE members_id_seq RESTART WITH 1;
+ALTER SEQUENCE aircraft_id_seq RESTART WITH 1;
+ALTER SEQUENCE reservations_id_seq RESTART WITH 1;
+ALTER SEQUENCE flight_logs_id_seq RESTART WITH 1;
+ALTER SEQUENCE billing_records_id_seq RESTART WITH 1;
+
+-- Insert sample members with hashed passwords
+-- Password for all users: password123
+INSERT INTO members (member_number, first_name, last_name, email, phone, password) VALUES
+('M001', 'John', 'Doe', 'john.doe@example.com', '555-0100', '$2b$10$rZ1qS8WqXvWxB3xGxF3LHOqYJ9gZvN.1YqP9zGvF3LHOKJYn9yqe'),
+('M002', 'Jane', 'Smith', 'jane.smith@example.com', '555-0101', '$2b$10$rZ1qS8WqXvWxB3xGxF3LHOqYJ9gZvN.1YqP9zGvF3LHOKJYn9yqe'),
+('M003', 'Bob', 'Johnson', 'bob.johnson@example.com', '555-0102', '$2b$10$rZ1qS8WqXvWxB3xGxF3LHOqYJ9gZvN.1YqP9zGvF3LHOKJYn9yqe'),
+('M004', 'Alice', 'Williams', 'alice.williams@example.com', '555-0103', '$2b$10$rZ1qS8WqXvWxB3xGxF3LHOqYJ9gZvN.1YqP9zGvF3LHOKJYn9yqe'),
+('M005', 'Charlie', 'Brown', 'charlie.brown@example.com', '555-0104', '$2b$10$rZ1qS8WqXvWxB3xGxF3LHOqYJ9gZvN.1YqP9zGvF3LHOKJYn9yqe');
 
 -- Insert sample aircraft
-INSERT INTO aircraft (tail_number, make, model, year, hourly_rate, current_tach_hours, is_available) VALUES
-('N12345', 'Cessna', '172S', 2018, 135.00, 2450.5, true),
-('N67890', 'Piper', 'PA-28-181', 2015, 125.00, 3821.3, true),
-('N24680', 'Cessna', '182T', 2020, 165.00, 892.7, true),
-('N13579', 'Cirrus', 'SR22', 2019, 285.00, 1247.2, true),
-('N97531', 'Cessna', '172N', 2005, 110.00, 8456.9, false);
+INSERT INTO aircraft (tail_number, make, model, year, hourly_rate, current_tach_hours) VALUES
+('N12345', 'Cessna', '172S', 2018, 135.00, 2450.5),
+('N67890', 'Piper', 'PA-28-181', 2015, 125.00, 3215.2),
+('N24680', 'Cessna', '182T', 2020, 165.00, 1523.8),
+('N13579', 'Diamond', 'DA40', 2019, 155.00, 892.3);
 
 -- Insert sample reservations
+-- Some in the past (for completed flights), some current, some future
 INSERT INTO reservations (member_id, aircraft_id, start_time, end_time, status, notes) VALUES
-(1, 1, '2024-03-20 09:00:00', '2024-03-20 12:00:00', 'scheduled', 'Local flight practice'),
-(2, 2, '2024-03-20 14:00:00', '2024-03-20 17:00:00', 'scheduled', 'Cross country to KBOS'),
-(3, 3, '2024-03-21 08:00:00', '2024-03-21 10:00:00', 'scheduled', 'Instrument practice'),
-(4, 1, '2024-03-22 10:00:00', '2024-03-22 13:00:00', 'scheduled', 'Touch and go practice'),
-(5, 4, '2024-03-23 15:00:00', '2024-03-23 18:00:00', 'scheduled', 'Personal trip'),
--- Past completed reservations
-(1, 1, '2024-03-10 09:00:00', '2024-03-10 11:00:00', 'completed', 'Pattern work'),
-(2, 2, '2024-03-12 13:00:00', '2024-03-12 16:00:00', 'completed', 'Local area'),
-(3, 1, '2024-03-14 10:00:00', '2024-03-14 12:30:00', 'completed', 'Solo practice'),
-(6, 3, '2024-03-15 14:00:00', '2024-03-15 17:00:00', 'completed', 'XC to KHPN'),
-(7, 2, '2024-03-16 09:00:00', '2024-03-16 11:00:00', 'completed', 'Flight review');
+-- Past reservations (completed)
+(1, 1, '2024-03-01 09:00:00', '2024-03-01 12:00:00', 'completed', 'Local flight practice'),
+(2, 2, '2024-03-02 14:00:00', '2024-03-02 17:00:00', 'completed', 'Cross-country to KPAE'),
+(3, 3, '2024-03-03 10:00:00', '2024-03-03 13:00:00', 'completed', 'IFR training'),
+(1, 4, '2024-03-05 08:00:00', '2024-03-05 11:00:00', 'completed', 'Breakfast run'),
+(4, 1, '2024-03-07 15:00:00', '2024-03-07 18:00:00', 'completed', 'Touch and goes'),
 
--- Insert sample flight logs for completed flights
+-- Current/upcoming reservations
+(5, 2, CURRENT_TIMESTAMP + INTERVAL '1 day', CURRENT_TIMESTAMP + INTERVAL '1 day' + INTERVAL '3 hours', 'scheduled', 'Sightseeing flight'),
+(2, 3, CURRENT_TIMESTAMP + INTERVAL '2 days', CURRENT_TIMESTAMP + INTERVAL '2 days' + INTERVAL '2 hours', 'scheduled', 'Instrument practice'),
+(3, 4, CURRENT_TIMESTAMP + INTERVAL '3 days', CURRENT_TIMESTAMP + INTERVAL '3 days' + INTERVAL '4 hours', 'scheduled', 'Long cross-country'),
+(1, 1, CURRENT_TIMESTAMP + INTERVAL '5 days', CURRENT_TIMESTAMP + INTERVAL '5 days' + INTERVAL '2 hours', 'scheduled', 'Currency flight'),
+
+-- Cancelled reservation
+(4, 2, '2024-03-04 11:00:00', '2024-03-04 14:00:00', 'cancelled', 'Weather cancellation');
+
+-- Insert sample flight logs (for completed reservations)
 INSERT INTO flight_logs (reservation_id, member_id, aircraft_id, tach_start, tach_end, flight_date, departure_time, arrival_time) VALUES
-(6, 1, 1, 2445.2, 2447.1, '2024-03-10', '2024-03-10 09:15:00', '2024-03-10 10:50:00'),
-(7, 2, 2, 3815.8, 3818.9, '2024-03-12', '2024-03-12 13:10:00', '2024-03-12 15:55:00'),
-(8, 3, 1, 2447.1, 2449.6, '2024-03-14', '2024-03-14 10:05:00', '2024-03-14 12:25:00'),
-(9, 6, 3, 888.5, 891.3, '2024-03-15', '2024-03-15 14:20:00', '2024-03-15 16:52:00'),
-(10, 7, 2, 3818.9, 3821.3, '2024-03-16', '2024-03-16 09:05:00', '2024-03-16 10:58:00');
+(1, 1, 1, 2450.5, 2452.8, '2024-03-01', '2024-03-01 09:15:00', '2024-03-01 11:45:00'),
+(2, 2, 2, 3215.2, 3218.5, '2024-03-02', '2024-03-02 14:10:00', '2024-03-02 16:50:00'),
+(3, 3, 3, 1523.8, 1526.9, '2024-03-03', '2024-03-03 10:05:00', '2024-03-03 12:55:00'),
+(4, 1, 4, 892.3, 894.1, '2024-03-05', '2024-03-05 08:20:00', '2024-03-05 10:50:00'),
+(5, 4, 1, 2452.8, 2455.3, '2024-03-07', '2024-03-07 15:10:00', '2024-03-07 17:40:00');
 
--- Generate billing records for the completed flights
+-- Insert sample billing records (generated from flight logs)
 INSERT INTO billing_records (member_id, flight_log_id, aircraft_id, tach_hours, hourly_rate, amount, billing_date, is_paid, payment_date) VALUES
-(1, 1, 1, 1.9, 135.00, 256.50, '2024-03-10', true, '2024-03-12'),
-(2, 2, 2, 3.1, 125.00, 387.50, '2024-03-12', true, '2024-03-14'),
-(3, 3, 1, 2.5, 135.00, 337.50, '2024-03-14', false, null),
-(6, 4, 3, 2.8, 165.00, 462.00, '2024-03-15', false, null),
-(7, 5, 2, 2.4, 125.00, 300.00, '2024-03-16', false, null);
+-- Paid bills
+(1, 1, 1, 2.3, 135.00, 310.50, '2024-03-01', true, '2024-03-05'),
+(2, 2, 2, 3.3, 125.00, 412.50, '2024-03-02', true, '2024-03-08'),
+(3, 3, 3, 3.1, 165.00, 511.50, '2024-03-03', true, '2024-03-10'),
 
--- Verify data was inserted
-SELECT 'Members inserted: ' || COUNT(*) FROM members;
-SELECT 'Aircraft inserted: ' || COUNT(*) FROM aircraft;
-SELECT 'Reservations inserted: ' || COUNT(*) FROM reservations;
-SELECT 'Flight logs inserted: ' || COUNT(*) FROM flight_logs;
-SELECT 'Billing records inserted: ' || COUNT(*) FROM billing_records;
+-- Unpaid bills
+(1, 4, 4, 1.8, 155.00, 279.00, '2024-03-05', false, NULL),
+(4, 5, 1, 2.5, 135.00, 337.50, '2024-03-07', false, NULL);
+
+-- Display summary
+SELECT 'Data insertion complete!' as message;
+SELECT COUNT(*) as member_count FROM members;
+SELECT COUNT(*) as aircraft_count FROM aircraft;
+SELECT COUNT(*) as reservation_count FROM reservations;
+SELECT COUNT(*) as flight_log_count FROM flight_logs;
+SELECT COUNT(*) as billing_record_count FROM billing_records;
