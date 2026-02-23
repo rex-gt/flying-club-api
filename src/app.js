@@ -5,6 +5,12 @@ const pool = require('./config/database');
 const bodyParser = require('body-parser');
 
 const app = express();
+const cors = require('cors');
+
+app.use(cors({
+  origin: ['http://localhost:4200'],
+  credentials: true
+}));
 
 // Middleware
 app.use(express.json());
