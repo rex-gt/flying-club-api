@@ -1,12 +1,44 @@
 const { Pool } = require('pg');
 require('dotenv').config();
 
-const pool = new Pool({
-  user: process.env.DB_USER || 'postgres',
-  host: process.env.DB_HOST || 'localhost',
-  database: process.env.DB_NAME || 'flying_club',
-  password: process.env.DB_PASSWORD || 'password',
-  port: process.env.DB_PORT ? parseInt(process.env.DB_PORT, 10) : 5432,
+// Railway provides DATABASE_URL, which should be used in production
+// For local development, fall back to individual env variables
+const pool = new Pool(
+  process.env.DATABASE_URL
+    ? {
+        // Production (Railway) - use connection string
+        connectionString: process.env.DATABASE_URL,
+        ssl: {
+          rejectUnauthorized: false
+        }
+      }
+    : {
+        // Local development - use individual parameters
+        user: process.env.DB_USER || 'postgres',
+        host: process.env.DB_HOST || 'localhost',
+        database: process.env.DB_NAME || 'flying_club',
+        password: process.env.DB_PASSWORD || 'password',
+        port: process.env.DB_PORT ? parseInt(process.env.DB_PORT, 10) : 5432
+      }
+);
+
+// Test the database connection
+pool.on('connect', () => {
+  console.log('✅ Database connected successfully');
+});
+
+pool.on('error', (err) => {
+  console.error('❌ Unexpected database error:', err);
+});
+
+// Test connection on startup
+pool.connect((err, client, release) => {
+  if (err) {
+    console.error('❌ Error acquiring client:', err.stack);
+  } else {
+    console.log('✅ Database pool initialized');
+    release();
+  }
 });
 
 module.exports = pool;
