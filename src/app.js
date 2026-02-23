@@ -8,7 +8,10 @@ const app = express();
 const cors = require('cors');
 
 app.use(cors({
-  origin: ['http://localhost:4200'],
+  origin: [
+    'http://localhost:4200',        // For local development
+    'https://aviation-club-scheduler.vercel.app' // For Vercel deployment
+  ],
   credentials: true
 }));
 
