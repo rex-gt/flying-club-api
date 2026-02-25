@@ -1,8 +1,20 @@
 const express = require('express');
 const router = express.Router();
-const { getMembers } = require('../controllers/memberController');
+const {
+	getMembers,
+	getMemberById,
+	createMember,
+	updateMember,
+	deleteMember,
+} = require('../controllers/memberController');
 const { protect } = require('../middleware/auth');
 
-router.get('/', protect, getMembers);
+const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
+
+router.get('/', protect, asyncHandler(getMembers));
+router.get('/:id', protect, asyncHandler(getMemberById));
+router.post('/', protect, asyncHandler(createMember));
+router.put('/:id', protect, asyncHandler(updateMember));
+router.delete('/:id', protect, asyncHandler(deleteMember));
 
 module.exports = router;

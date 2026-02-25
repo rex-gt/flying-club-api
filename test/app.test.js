@@ -1,9 +1,17 @@
 const http = require('http');
 
+jest.mock('jsonwebtoken', () => ({
+  verify: jest.fn(() => ({ id: 1 }))
+}));
+
 // Mock 'pg' so tests don't require a real database
 jest.mock('pg', () => {
   const mPool = {
     query: (text, params) => {
+      const lt = (text || '').toLowerCase();
+      if (lt.includes('select id, member_number') && lt.includes('where id = $1')) {
+        return Promise.resolve({ rows: [{ id: 1, member_number: 'M-1', first_name: 'Auth', last_name: 'User', email: 'auth@example.com', role: 'admin', is_active: true }] });
+      }
       if (text && text.toLowerCase().includes('from aircraft')) {
         return Promise.resolve({ rows: [{ id: 1, tail_number: 'N12345', make: 'Cessna', model: '172' }] });
       }
@@ -18,8 +26,8 @@ jest.mock('pg', () => {
 
 const app = require('../src/index');
 
-function httpGet(port, path) {
-  const options = { port, path, method: 'GET', host: '127.0.0.1' };
+function httpGet(port, path, headers = {}) {
+  const options = { port, path, method: 'GET', host: '127.0.0.1', headers };
   return new Promise((resolve, reject) => {
     const req = http.request(options, (res) => {
       let data = '';
@@ -62,7 +70,7 @@ describe('API smoke tests', () => {
   });
 
   test('GET /api/members/:id returns 404 when not found', async () => {
-    const res = await httpGet(port, '/api/members/9999');
+    const res = await httpGet(port, '/api/members/9999', { Authorization: 'Bearer faketoken' });
     expect(res.statusCode).toBe(404);
     expect(res.body).toHaveProperty('error');
   });

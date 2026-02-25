@@ -8,18 +8,48 @@ jest.mock('pg', () => {
   const mPool = {
     query: (text, params) => {
       const lt = (text || '').toLowerCase();
+
+      // Auth middleware user lookup
       if (lt.includes('select id, member_number') && lt.includes('where id = $1')) {
         return Promise.resolve({ rows: [{ id: 1, member_number: 'M-1', first_name: 'Auth', last_name: 'User', email: 'auth@example.com', role: 'admin', is_active: true }] });
       }
+
+      // Get single member by id
+      if (lt.includes('select * from members where id = $1')) {
+        const idRaw = params && params[0];
+        const id = typeof idRaw === 'string' ? parseInt(idRaw, 10) : idRaw;
+        if (id === 1) {
+          return Promise.resolve({ rows: [{ id: 1, member_number: 'M-1', first_name: 'Auth', last_name: 'User', email: 'auth@example.com' }] });
+        }
+        return Promise.resolve({ rows: [] });
+      }
+
+      // List members
       if (lt.includes('select * from members order by')) {
         return Promise.resolve({ rows: [
           { id: 1, member_number: 'M-1', first_name: 'Auth', last_name: 'User', email: 'auth@example.com' },
           { id: 2, member_number: 'M-2', first_name: 'Bob', last_name: 'Jones', email: 'bob@example.com' }
         ] });
       }
+
+      // Insert member
       if (lt.includes('insert into members')) {
         return Promise.resolve({ rows: [{ id: 2, member_number: params[0], first_name: params[1], last_name: params[2], email: params[3], phone: params[4] }] });
       }
+
+      // Update member
+      if (lt.includes('update members')) {
+        const id = params && params[5];
+        return Promise.resolve({ rows: [{ id, member_number: 'M-1', first_name: params[0], last_name: params[1], email: params[2], phone: params[3], is_active: params[4] }] });
+      }
+
+      // Delete member
+      if (lt.includes('delete from members')) {
+        const idRaw = params && params[0];
+        const id = typeof idRaw === 'string' ? parseInt(idRaw, 10) : idRaw;
+        return Promise.resolve({ rows: [{ id, member_number: 'M-1', first_name: 'Deleted', last_name: 'User', email: 'deleted@example.com' }] });
+      }
+
       return Promise.resolve({ rows: [] });
     }
   };
@@ -54,7 +84,7 @@ describe('Members endpoint', () => {
 
   test('POST /api/members creates a member', async () => {
     const payload = { member_number: 'M-100', first_name: 'Alice', last_name: 'Smith', email: 'alice@example.com', phone: '555-1234' };
-    const res = await httpRequest(port, '/api/members', 'POST', payload);
+    const res = await httpRequest(port, '/api/members', 'POST', payload, { Authorization: 'Bearer faketoken' });
     expect(res.statusCode).toBe(201);
     expect(res.body).toHaveProperty('member_number', 'M-100');
     expect(res.body).toHaveProperty('email', 'alice@example.com');
@@ -67,5 +97,28 @@ describe('Members endpoint', () => {
     expect(Array.isArray(res.body)).toBe(true);
     expect(res.body.length).toBeGreaterThanOrEqual(2);
     expect(res.body[0]).toHaveProperty('member_number');
+  });
+
+  test('GET /api/members/:id returns a member when found', async () => {
+    const headers = { Authorization: 'Bearer faketoken' };
+    const res = await httpRequest(port, '/api/members/1', 'GET', null, headers);
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toHaveProperty('id', 1);
+    expect(res.body).toHaveProperty('member_number');
+  });
+
+  test('PUT /api/members/:id updates a member', async () => {
+    const payload = { first_name: 'AliceUpdated', last_name: 'Smith', email: 'aliceu@example.com', phone: '555-1111', is_active: true };
+    const res = await httpRequest(port, '/api/members/1', 'PUT', payload, { Authorization: 'Bearer faketoken' });
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toHaveProperty('first_name', 'AliceUpdated');
+  });
+
+  test('DELETE /api/members/:id deletes a member', async () => {
+    const res = await httpRequest(port, '/api/members/1', 'DELETE', null, { Authorization: 'Bearer faketoken' });
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toHaveProperty('message');
+    expect(res.body).toHaveProperty('member');
+    expect(res.body.member).toHaveProperty('id', 1);
   });
 });

@@ -22,23 +22,31 @@ const pool = new Pool(
       }
 );
 
-// Test the database connection
-pool.on('connect', () => {
-  console.log('✅ Database connected successfully');
-});
+// Test the database connection (guarded for test environments where `pg` may be mocked)
+if (typeof pool.on === 'function') {
+  pool.on('connect', () => {
+    console.log('✅ Database connected successfully');
+  });
 
-pool.on('error', (err) => {
-  console.error('❌ Unexpected database error:', err);
-});
+  pool.on('error', (err) => {
+    console.error('❌ Unexpected database error:', err);
+  });
+}
 
-// Test connection on startup
-pool.connect((err, client, release) => {
-  if (err) {
-    console.error('❌ Error acquiring client:', err.stack);
-  } else {
-    console.log('✅ Database pool initialized');
-    release();
+// Test connection on startup if available
+if (typeof pool.connect === 'function') {
+  try {
+    pool.connect((err, client, release) => {
+      if (err) {
+        console.error('❌ Error acquiring client:', err.stack);
+      } else {
+        console.log('✅ Database pool initialized');
+        if (typeof release === 'function') release();
+      }
+    });
+  } catch (err) {
+    // Some test mocks may not support connect; ignore in that case
   }
-});
+}
 
 module.exports = pool;
