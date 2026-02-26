@@ -62,7 +62,7 @@ describe('API smoke tests', () => {
   });
 
   test('GET /api/aircraft returns 200 and an array', async () => {
-    const res = await httpGet(port, '/api/aircraft');
+    const res = await httpGet(port, '/api/aircraft', { Authorization: 'Bearer faketoken' });
     expect(res.statusCode).toBe(200);
     expect(Array.isArray(res.body)).toBe(true);
     expect(res.body.length).toBeGreaterThan(0);
