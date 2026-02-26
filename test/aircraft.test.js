@@ -7,17 +7,26 @@ jest.mock('pg', () => {
       if (lt.includes('select * from aircraft order by')) {
         return Promise.resolve({ rows: [ { id: 1, tail_number: 'N100', make: 'Piper', model: 'PA-28' } ] });
       }
+      if (lt.includes('where a.is_available') || lt.includes('left join reservations') || lt.includes('is_available_for_timeframe') || lt.includes('from aircraft a')) {
+        return Promise.resolve({ rows: [ { id: 1, tail_number: 'N100', make: 'Piper', model: 'PA-28', is_available_for_timeframe: true } ] });
+      }
       if (lt.includes('insert into aircraft')) {
         return Promise.resolve({ rows: [{ id: 5, tail_number: params[0], make: params[1], model: params[2] }] });
       }
       if (lt.includes('select * from aircraft where id = $1')) {
-        return Promise.resolve({ rows: [{ id: params[0], tail_number: 'N100', make: 'Piper', model: 'PA-28' }] });
+        const idRaw = params && params[0];
+        const id = typeof idRaw === 'string' ? parseInt(idRaw, 10) : idRaw;
+        return Promise.resolve({ rows: [{ id, tail_number: 'N100', make: 'Piper', model: 'PA-28' }] });
       }
       if (lt.includes('update aircraft')) {
-        return Promise.resolve({ rows: [{ id: params[5], tail_number: 'N100', make: params[0], model: params[1] }] });
+        const idRaw = params && params[5];
+        const id = typeof idRaw === 'string' ? parseInt(idRaw, 10) : idRaw;
+        return Promise.resolve({ rows: [{ id, tail_number: 'N100', make: params[0], model: params[1] }] });
       }
       if (lt.includes('delete from aircraft')) {
-        return Promise.resolve({ rows: [{ id: params[0] }] });
+        const idRaw = params && params[0];
+        const id = typeof idRaw === 'string' ? parseInt(idRaw, 10) : idRaw;
+        return Promise.resolve({ rows: [{ id }] });
       }
       return Promise.resolve({ rows: [] });
     }
@@ -63,5 +72,34 @@ describe('Aircraft endpoints', () => {
     const res = await httpRequest(port, '/api/aircraft', 'POST', payload);
     expect(res.statusCode).toBe(201);
     expect(res.body).toHaveProperty('tail_number', 'N200');
+  });
+
+  test('GET /api/aircraft/:id returns aircraft', async () => {
+    const res = await httpRequest(port, '/api/aircraft/1');
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toHaveProperty('id', 1);
+    expect(res.body).toHaveProperty('tail_number');
+  });
+
+  test('PUT /api/aircraft/:id updates aircraft', async () => {
+    const payload = { make: 'Beech', model: 'Bonanza', year: 1999, hourly_rate: 150, current_tach_hours: 1200, is_available: true };
+    const res = await httpRequest(port, '/api/aircraft/1', 'PUT', payload);
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toHaveProperty('make', 'Beech');
+  });
+
+  test('DELETE /api/aircraft/:id deletes aircraft', async () => {
+    const res = await httpRequest(port, '/api/aircraft/1', 'DELETE');
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toHaveProperty('aircraft');
+    expect(res.body.aircraft).toHaveProperty('id', 1);
+  });
+
+  test('GET /api/aircraft/availability returns availability', async () => {
+    const res = await httpRequest(port, '/api/aircraft/availability?start_time=2026-02-25T10:00:00Z&end_time=2026-02-25T12:00:00Z');
+    expect(res.statusCode).toBe(200);
+    const body = Array.isArray(res.body) ? res.body : (res.body ? [res.body] : []);
+    expect(Array.isArray(body)).toBe(true);
+    expect(body[0]).toHaveProperty('is_available_for_timeframe');
   });
 });
