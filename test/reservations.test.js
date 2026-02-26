@@ -4,15 +4,51 @@ jest.mock('pg', () => {
   const mPool = {
     query: (text, params) => {
       const lt = (text || '').toLowerCase();
+      // Conflict check
       if (lt.includes('select id from reservations')) {
-        // Simulate a conflict when aircraft_id === 1 and start_time === '2026-01-01'
         if (params && params[0] === 1 && params[1] === '2026-01-01T10:00:00Z') {
           return Promise.resolve({ rows: [{ id: 99 }] });
         }
         return Promise.resolve({ rows: [] });
       }
+      // GET list
+      if (lt.includes('select r.*') && lt.includes('from reservations')) {
+        return Promise.resolve({ rows: [
+          { id: 1, member_id: 1, aircraft_id: 2, start_time: '2026-02-01T10:00:00Z', end_time: '2026-02-01T11:00:00Z', status: 'booked', notes: 'Initial' }
+        ] });
+      }
+      // GET by id
+      if ((lt.includes('select') && lt.includes('from reservations')) && params && params[0] === 1) {
+        return Promise.resolve({ rows: [{ id: 1, member_id: 1, aircraft_id: 2, start_time: '2026-02-01T10:00:00Z', end_time: '2026-02-01T11:00:00Z', status: 'booked', notes: 'Initial' }] });
+      }
+      // Insert reservation
       if (lt.includes('insert into reservations')) {
-        return Promise.resolve({ rows: [{ id: 123, member_id: params[0], aircraft_id: params[1], start_time: params[2], end_time: params[3] }] });
+        return Promise.resolve({ rows: [{ id: 123, member_id: params[0], aircraft_id: params[1], start_time: params[2], end_time: params[3], notes: params[4] }] });
+      }
+      // Update reservation
+      if (lt.includes('update reservations')) {
+        const id = params && params[4];
+        if (id === 1) {
+          // Simulate updated reservation with all fields
+          return Promise.resolve({ rows: [{
+            id,
+            member_id: 1,
+            aircraft_id: 2,
+            start_time: params[0],
+            end_time: params[1],
+            status: params[2],
+            notes: params[3]
+          }] });
+        }
+        return Promise.resolve({ rows: [] });
+      }
+      // Delete reservation
+      if (lt.includes('delete from reservations')) {
+        const id = params && params[0];
+        if (id === 1) {
+          return Promise.resolve({ rows: [{ id }] });
+        }
+        return Promise.resolve({ rows: [] });
       }
       return Promise.resolve({ rows: [] });
     }
@@ -45,6 +81,34 @@ describe('Reservations endpoint', () => {
   let server, port;
   beforeAll(() => new Promise((resolve) => { server = app.listen(0, () => { port = server.address().port; resolve(); }); }));
   afterAll(() => new Promise((resolve) => server.close(resolve)));
+
+  test('PUT /api/reservations/:id returns 404 if not found', async () => {
+    const payload = {
+      start_time: '2026-05-01T09:00:00Z',
+      end_time: '2026-05-01T10:00:00Z',
+      status: 'booked',
+      notes: 'Updated reservation'
+    };
+    const res = await httpRequest(port, '/api/reservations/1', 'PUT', payload);
+    expect(res.statusCode).toBe(404);
+    expect(res.body).toHaveProperty('error');
+  });
+
+  test('POST /api/reservations creates a new reservation', async () => {
+    const payload = {
+      member_id: 2,
+      aircraft_id: 3,
+      start_time: '2026-04-01T09:00:00Z',
+      end_time: '2026-04-01T10:00:00Z',
+      notes: 'Test reservation'
+    };
+    const res = await httpRequest(port, '/api/reservations', 'POST', payload);
+    expect(res.statusCode).toBe(201);
+    expect(res.body).toHaveProperty('id');
+    expect(res.body).toHaveProperty('member_id', 2);
+    expect(res.body).toHaveProperty('aircraft_id', 3);
+    expect(res.body).toHaveProperty('notes', 'Test reservation');
+  });
 
   test('POST /api/reservations returns 409 on conflict', async () => {
     const payload = { member_id: 1, aircraft_id: 1, start_time: '2026-01-01T10:00:00Z', end_time: '2026-01-01T11:00:00Z' };
