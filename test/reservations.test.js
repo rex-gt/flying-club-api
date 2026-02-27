@@ -1,5 +1,13 @@
 const http = require('http');
 
+beforeAll(() => {
+  process.env.API_KEYS = 'test-api-key';
+});
+
+afterAll(() => {
+  delete process.env.API_KEYS;
+});
+
 jest.mock('pg', () => {
   const mPool = {
     query: (text, params) => {
@@ -58,8 +66,8 @@ jest.mock('pg', () => {
 
 const app = require('../src/index');
 
-function httpRequest(port, path, method = 'GET', data = null) {
-  const options = { port, path, method, host: '127.0.0.1', headers: { 'Content-Type': 'application/json' } };
+function httpRequest(port, path, method = 'GET', data = null, headers = {}) {
+  const options = { port, path, method, host: '127.0.0.1', headers: Object.assign({ 'Content-Type': 'application/json' }, headers) };
   return new Promise((resolve, reject) => {
     const req = http.request(options, (res) => {
       let body = '';
@@ -89,7 +97,7 @@ describe('Reservations endpoint', () => {
       status: 'booked',
       notes: 'Updated reservation'
     };
-    const res = await httpRequest(port, '/api/reservations/1', 'PUT', payload);
+    const res = await httpRequest(port, '/api/reservations/1', 'PUT', payload, { 'X-API-Key': 'test-api-key' });
     expect(res.statusCode).toBe(404);
     expect(res.body).toHaveProperty('error');
   });
@@ -102,7 +110,7 @@ describe('Reservations endpoint', () => {
       end_time: '2026-04-01T10:00:00Z',
       notes: 'Test reservation'
     };
-    const res = await httpRequest(port, '/api/reservations', 'POST', payload);
+    const res = await httpRequest(port, '/api/reservations', 'POST', payload, { 'X-API-Key': 'test-api-key' });
     expect(res.statusCode).toBe(201);
     expect(res.body).toHaveProperty('id');
     expect(res.body).toHaveProperty('member_id', 2);
@@ -112,14 +120,14 @@ describe('Reservations endpoint', () => {
 
   test('POST /api/reservations returns 409 on conflict', async () => {
     const payload = { member_id: 1, aircraft_id: 1, start_time: '2026-01-01T10:00:00Z', end_time: '2026-01-01T11:00:00Z' };
-    const res = await httpRequest(port, '/api/reservations', 'POST', payload);
+    const res = await httpRequest(port, '/api/reservations', 'POST', payload, { 'X-API-Key': 'test-api-key' });
     expect(res.statusCode).toBe(409);
     expect(res.body).toHaveProperty('error');
   });
 
   test('POST /api/reservations creates reservation when no conflict', async () => {
     const payload = { member_id: 1, aircraft_id: 2, start_time: '2026-02-01T10:00:00Z', end_time: '2026-02-01T11:00:00Z' };
-    const res = await httpRequest(port, '/api/reservations', 'POST', payload);
+    const res = await httpRequest(port, '/api/reservations', 'POST', payload, { 'X-API-Key': 'test-api-key' });
     expect(res.statusCode).toBe(201);
     expect(res.body).toHaveProperty('id');
     expect(res.body).toHaveProperty('aircraft_id', 2);
