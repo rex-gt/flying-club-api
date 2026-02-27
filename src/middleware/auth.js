@@ -1,12 +1,23 @@
 const jwt = require('jsonwebtoken');
 const pool = require('../config/database');
 
-const protect = async (req, res, next) => {
-  let token;
+const getValidApiKeys = () =>
+  (process.env.API_KEYS || '').split(',').map(k => k.trim()).filter(Boolean);
 
+const protect = async (req, res, next) => {
+  // Check for API key authentication
+  const apiKey = req.headers['x-api-key'];
+  if (apiKey !== undefined) {
+    if (getValidApiKeys().includes(apiKey)) {
+      return next();
+    }
+    return res.status(401).json({ message: 'Not authorized, invalid API key' });
+  }
+
+  // Check for JWT Bearer token
   if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
     try {
-      token = req.headers.authorization.split(' ')[1];
+      const token = req.headers.authorization.split(' ')[1];
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
       const result = await pool.query('SELECT id, member_number, first_name, last_name, email, phone, role, is_active FROM members WHERE id = $1', [decoded.id]);

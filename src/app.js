@@ -5,6 +5,7 @@ const aircraftRoutes = require('./routes/aircraftRoutes');
 const reservationsRoutes = require('./routes/reservationsRoutes');
 const pool = require('./config/database');
 const bodyParser = require('body-parser');
+const { protect } = require('./middleware/auth');
 
 const app = express();
 const cors = require('cors');
@@ -34,7 +35,7 @@ const asyncHandler = (fn) => (req, res, next) => {
 
 // ============ FLIGHT LOGS ENDPOINTS ============
 
-app.get('/api/flight-logs', asyncHandler(async (req, res) => {
+app.get('/api/flight-logs', protect, asyncHandler(async (req, res) => {
   const { member_id, aircraft_id, start_date, end_date } = req.query;
 
   let query = `
@@ -79,7 +80,7 @@ app.get('/api/flight-logs', asyncHandler(async (req, res) => {
   res.json(result.rows);
 }));
 
-app.get('/api/flight-logs/:id', asyncHandler(async (req, res) => {
+app.get('/api/flight-logs/:id', protect, asyncHandler(async (req, res) => {
   const { id } = req.params;
   const result = await pool.query(
     `SELECT fl.*,
@@ -98,7 +99,7 @@ app.get('/api/flight-logs/:id', asyncHandler(async (req, res) => {
   res.json(result.rows[0]);
 }));
 
-app.post('/api/flight-logs', asyncHandler(async (req, res) => {
+app.post('/api/flight-logs', protect, asyncHandler(async (req, res) => {
   const {
     reservation_id, member_id, aircraft_id, tach_start, tach_end,
     flight_date, departure_time, arrival_time
@@ -124,7 +125,7 @@ app.post('/api/flight-logs', asyncHandler(async (req, res) => {
   res.status(201).json(result.rows[0]);
 }));
 
-app.put('/api/flight-logs/:id', asyncHandler(async (req, res) => {
+app.put('/api/flight-logs/:id', protect, asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { tach_start, tach_end, flight_date, departure_time, arrival_time } = req.body;
 
@@ -151,7 +152,7 @@ app.put('/api/flight-logs/:id', asyncHandler(async (req, res) => {
   res.json(result.rows[0]);
 }));
 
-app.delete('/api/flight-logs/:id', asyncHandler(async (req, res) => {
+app.delete('/api/flight-logs/:id', protect, asyncHandler(async (req, res) => {
   const { id } = req.params;
   const result = await pool.query(
     'DELETE FROM flight_logs WHERE id = $1 RETURNING *',
@@ -166,7 +167,7 @@ app.delete('/api/flight-logs/:id', asyncHandler(async (req, res) => {
 
 // ============ BILLING ENDPOINTS ============
 
-app.get('/api/billing', asyncHandler(async (req, res) => {
+app.get('/api/billing', protect, asyncHandler(async (req, res) => {
   const { member_id, is_paid, start_date, end_date } = req.query;
 
   let query = `
@@ -212,7 +213,7 @@ app.get('/api/billing', asyncHandler(async (req, res) => {
   res.json(result.rows);
 }));
 
-app.post('/api/billing/generate', asyncHandler(async (req, res) => {
+app.post('/api/billing/generate', protect, asyncHandler(async (req, res) => {
   const { flight_log_id } = req.body;
 
   const flightLog = await pool.query(
@@ -259,7 +260,7 @@ app.post('/api/billing/generate', asyncHandler(async (req, res) => {
   res.status(201).json(result.rows[0]);
 }));
 
-app.put('/api/billing/:id/pay', asyncHandler(async (req, res) => {
+app.put('/api/billing/:id/pay', protect, asyncHandler(async (req, res) => {
   const { id } = req.params;
 
   const result = await pool.query(
@@ -276,7 +277,7 @@ app.put('/api/billing/:id/pay', asyncHandler(async (req, res) => {
   res.json(result.rows[0]);
 }));
 
-app.get('/api/billing/summary/:member_id', asyncHandler(async (req, res) => {
+app.get('/api/billing/summary/:member_id', protect, asyncHandler(async (req, res) => {
   const { member_id } = req.params;
 
   const result = await pool.query(
@@ -294,7 +295,7 @@ app.get('/api/billing/summary/:member_id', asyncHandler(async (req, res) => {
   res.json(result.rows[0]);
 }));
 
-app.delete('/api/billing/:id', asyncHandler(async (req, res) => {
+app.delete('/api/billing/:id', protect, asyncHandler(async (req, res) => {
   const { id } = req.params;
   const result = await pool.query(
     'DELETE FROM billing_records WHERE id = $1 RETURNING *',
@@ -309,7 +310,7 @@ app.delete('/api/billing/:id', asyncHandler(async (req, res) => {
 
 // ============ UTILITY ENDPOINTS ============
 
-app.get('/api/aircraft/availability', asyncHandler(async (req, res) => {
+app.get('/api/aircraft/availability', protect, asyncHandler(async (req, res) => {
   const { start_time, end_time } = req.query;
 
   if (!start_time || !end_time) {

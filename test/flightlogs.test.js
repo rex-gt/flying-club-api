@@ -1,5 +1,13 @@
 const http = require('http');
 
+beforeAll(() => {
+  process.env.API_KEYS = 'test-api-key';
+});
+
+afterAll(() => {
+  delete process.env.API_KEYS;
+});
+
 jest.mock('pg', () => {
   const mPool = {
     query: (text, params) => {
@@ -44,7 +52,7 @@ describe('Flight logs endpoints', () => {
 
   test('POST /api/flight-logs creates a flight log and updates aircraft tach', async () => {
     const payload = { reservation_id: 1, member_id: 1, aircraft_id: 2, tach_start: 100, tach_end: 110, flight_date: '2026-02-02', departure_time: '10:00', arrival_time: '11:00' };
-    const res = await httpRequest(port, '/api/flight-logs', 'POST', payload);
+    const res = await httpRequest(port, '/api/flight-logs', 'POST', payload, { 'X-API-Key': 'test-api-key' });
     expect(res.statusCode).toBe(201);
     expect(res.body).toHaveProperty('id');
     expect(res.body).toHaveProperty('tach_end', 110);
