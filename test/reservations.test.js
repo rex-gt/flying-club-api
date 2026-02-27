@@ -28,7 +28,7 @@ jest.mock('pg', () => {
       // Update reservation
       if (lt.includes('update reservations')) {
         const id = params && params[4];
-        if (id === 1) {
+        if (id === '1') {
           // Simulate updated reservation with all fields
           return Promise.resolve({ rows: [{
             id,
@@ -45,7 +45,7 @@ jest.mock('pg', () => {
       // Delete reservation
       if (lt.includes('delete from reservations')) {
         const id = params && params[0];
-        if (id === 1) {
+        if (id === '1') {
           return Promise.resolve({ rows: [{ id }] });
         }
         return Promise.resolve({ rows: [] });
@@ -89,9 +89,22 @@ describe('Reservations endpoint', () => {
       status: 'booked',
       notes: 'Updated reservation'
     };
-    const res = await httpRequest(port, '/api/reservations/1', 'PUT', payload);
+    const res = await httpRequest(port, '/api/reservations/2', 'PUT', payload);
     expect(res.statusCode).toBe(404);
     expect(res.body).toHaveProperty('error');
+  });
+
+    test('PUT /api/reservations/:id updates a reservation', async () => {
+    const payload = {
+      start_time: '2026-05-01T09:00:00Z',
+      end_time: '2026-05-01T10:00:00Z',
+      status: 'booked',
+      notes: 'Updated reservation'
+    };
+    const res = await httpRequest(port, '/api/reservations/1', 'PUT', payload);
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toHaveProperty('id', '1');
+    expect(res.body).toHaveProperty('notes', 'Updated reservation');
   });
 
   test('POST /api/reservations creates a new reservation', async () => {
@@ -124,4 +137,12 @@ describe('Reservations endpoint', () => {
     expect(res.body).toHaveProperty('id');
     expect(res.body).toHaveProperty('aircraft_id', 2);
   });
+
+  test("DELETE /api/reservations/:id deletes a reservation", async () => {
+    const res = await httpRequest(port, '/api/reservations/1', 'DELETE');
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toHaveProperty('message');
+    expect(res.body).toHaveProperty('reservation');
+    expect(res.body.reservation).toHaveProperty('id', '1');
+  })
 });
