@@ -1,6 +1,6 @@
-# Flying Club Scheduling System API
+# WingTime Flight Management System API
 
-A comprehensive backend service for managing aircraft scheduling, flight logs, and member billing for a flying club.
+A comprehensive backend service for WingTime Flight Management System, supporting aircraft scheduling, flight logs, and member billing for a flying club.
 
 ## Project Structure
 
