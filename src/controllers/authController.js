@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const pool = require('../config/database');
+const { sendWelcomeEmail } = require('../services/emailService');
 
 const loginUser = async (req, res) => {
     const { email, password } = req.body;
@@ -58,6 +59,8 @@ const registerUser = async (req, res) => {
 
         const user = result.rows[0];
         const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '30d' });
+
+        sendWelcomeEmail(user).catch((err) => console.error('Failed to send welcome email:', err));
 
         res.status(201).json({
             id: user.id,

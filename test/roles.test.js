@@ -5,6 +5,7 @@ let mockUserRole = 'member';
 let mockUserId = 1;
 
 jest.mock('jsonwebtoken', () => ({
+  sign: jest.fn(() => 'signed-token'),
   verify: jest.fn(() => ({ id: mockUserId }))
 }));
 
@@ -112,8 +113,12 @@ jest.mock('pg', () => {
       return Promise.resolve({ rows: [] });
     }
   };
-  return { Pool: jest.fn(() => mPool) };
+  return { Pool: jest.fn(() => mPool), types: { setTypeParser: jest.fn() } };
 });
+
+jest.mock('nodemailer', () => ({
+  createTransport: jest.fn(() => ({ sendMail: jest.fn(() => Promise.resolve()) }))
+}));
 
 const app = require('../src/index');
 
