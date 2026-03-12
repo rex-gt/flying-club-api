@@ -11,6 +11,8 @@ CREATE TABLE members (
     password VARCHAR(255) NOT NULL, -- Store hashed passwords
     role VARCHAR(20) DEFAULT 'member' CHECK (role IN ('admin', 'operator', 'member')),
     is_active BOOLEAN DEFAULT true,
+    password_reset_token VARCHAR(255),
+    password_reset_expires TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

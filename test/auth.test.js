@@ -1,11 +1,19 @@
 const http = require('http');
 
+jest.mock('nodemailer', () => ({
+  createTransport: jest.fn(() => ({
+    sendMail: jest.fn(() => Promise.resolve({ messageId: 'test-id' })),
+  })),
+}));
+
 jest.mock('jsonwebtoken', () => ({
   sign: jest.fn(() => 'signed-token'),
   verify: jest.fn(() => ({ id: 1 }))
 }));
 
 jest.mock('pg', () => {
+  // Pre-computed SHA256 hash of 'a'.repeat(64) — used as the valid reset token in tests
+  const validTokenHash = 'ffe054fe7ae0cb6dc65c3af9b61d5209f439851db43d0ba5997337df154668eb';
   const mPool = {
     query: (text, params) => {
       const lt = (text || '').toLowerCase();
@@ -25,6 +33,24 @@ jest.mock('pg', () => {
         }
         return Promise.resolve({ rows: [] });
       }
+      if (lt.includes('select id, email, first_name from members where email')) {
+        if (params && params[0] === 'valid@example.com') {
+          return Promise.resolve({ rows: [{ id: 5, email: 'valid@example.com', first_name: 'Valid' }] });
+        }
+        return Promise.resolve({ rows: [] });
+      }
+      if (lt.includes('update members set password_reset_token')) {
+        return Promise.resolve({ rows: [] });
+      }
+      if (lt.includes('select id from members where password_reset_token')) {
+        if (params && params[0] === validTokenHash) {
+          return Promise.resolve({ rows: [{ id: 5 }] });
+        }
+        return Promise.resolve({ rows: [] });
+      }
+      if (lt.includes('update members set password =')) {
+        return Promise.resolve({ rows: [] });
+      }
       if (lt.includes('insert into members')) {
         return Promise.resolve({ rows: [{ id: 10, member_number: params[0], first_name: params[1], last_name: params[2], email: params[3], role: params[6] || 'member' }] });
       }
@@ -34,7 +60,7 @@ jest.mock('pg', () => {
       return Promise.resolve({ rows: [] });
     }
   };
-  return { Pool: jest.fn(() => mPool) };
+  return { Pool: jest.fn(() => mPool), types: { setTypeParser: jest.fn() } };
 });
 
 jest.mock('bcryptjs', () => ({
@@ -183,5 +209,50 @@ describe('Auth endpoints', () => {
     const res = await httpRequest(port, '/api/users/profile', 'GET');
     expect(res.statusCode).toBe(401);
     expect(res.body).toHaveProperty('message');
+  });
+});
+
+describe('Password reset endpoints', () => {
+  let server, port;
+  beforeAll(() => new Promise((resolve) => { server = app.listen(0, () => { port = server.address().port; resolve(); }); }));
+  afterAll(() => new Promise((resolve) => server.close(resolve)));
+
+  test('POST /api/users/forgot-password succeeds for existing email', async () => {
+    const res = await httpRequest(port, '/api/users/forgot-password', 'POST', { email: 'valid@example.com' });
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toHaveProperty('message', 'Password reset email sent');
+  });
+
+  test('POST /api/users/forgot-password returns 404 for unknown email', async () => {
+    const res = await httpRequest(port, '/api/users/forgot-password', 'POST', { email: 'unknown@example.com' });
+    expect(res.statusCode).toBe(404);
+    expect(res.body).toHaveProperty('message', 'No account found with that email address');
+  });
+
+  test('POST /api/users/forgot-password returns 400 when email is missing', async () => {
+    const res = await httpRequest(port, '/api/users/forgot-password', 'POST', {});
+    expect(res.statusCode).toBe(400);
+    expect(res.body).toHaveProperty('message', 'Email is required');
+  });
+
+  test('POST /api/users/reset-password/:token succeeds with valid token', async () => {
+    const validToken = 'a'.repeat(64);
+    const res = await httpRequest(port, `/api/users/reset-password/${validToken}`, 'POST', { password: 'newpassword123' });
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toHaveProperty('message', 'Password has been reset successfully');
+  });
+
+  test('POST /api/users/reset-password/:token returns 400 for invalid or expired token', async () => {
+    const invalidToken = 'z'.repeat(64);
+    const res = await httpRequest(port, `/api/users/reset-password/${invalidToken}`, 'POST', { password: 'newpassword123' });
+    expect(res.statusCode).toBe(400);
+    expect(res.body).toHaveProperty('message', 'Password reset token is invalid or has expired');
+  });
+
+  test('POST /api/users/reset-password/:token returns 400 when password is missing', async () => {
+    const validToken = 'a'.repeat(64);
+    const res = await httpRequest(port, `/api/users/reset-password/${validToken}`, 'POST', {});
+    expect(res.statusCode).toBe(400);
+    expect(res.body).toHaveProperty('message', 'Password is required');
   });
 });

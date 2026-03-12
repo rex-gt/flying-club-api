@@ -1,11 +1,30 @@
 const express = require('express');
 const router = express.Router();
-const { loginUser, registerUser, getProfile, updateProfile } = require('../controllers/authController');
+const rateLimit = require('express-rate-limit');
+const { loginUser, registerUser, getProfile, updateProfile, forgotPassword, resetPassword } = require('../controllers/authController');
 const { protect } = require('../middleware/auth');
+
+const forgotPasswordLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 5,
+    message: { message: 'Too many password reset attempts, please try again later' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+const resetPasswordLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 5,
+    message: { message: 'Too many password reset attempts, please try again later' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
 
 router.post('/register', registerUser);
 router.post('/login', loginUser);
 router.get('/profile', protect, getProfile);
 router.put('/profile', protect, updateProfile);
+router.post('/forgot-password', forgotPasswordLimiter, forgotPassword);
+router.post('/reset-password/:token', resetPasswordLimiter, resetPassword);
 
 module.exports = router;

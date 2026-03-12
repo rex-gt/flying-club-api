@@ -1,6 +1,8 @@
+const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const pool = require('../config/database');
+const { sendPasswordResetEmail } = require('../services/emailService');
 
 const loginUser = async (req, res) => {
     const { email, password } = req.body;
@@ -167,4 +169,75 @@ const updateProfile = async (req, res) => {
     }
 };
 
-module.exports = { loginUser, registerUser, getProfile, updateProfile };
+const forgotPassword = async (req, res) => {
+    const { email } = req.body;
+
+    if (!email) {
+        return res.status(400).json({ message: 'Email is required' });
+    }
+
+    try {
+        const result = await pool.query('SELECT id, email, first_name FROM members WHERE email = $1', [email]);
+        const user = result.rows[0];
+
+        if (!user) {
+            return res.status(404).json({ message: 'No account found with that email address' });
+        }
+
+        const resetToken = crypto.randomBytes(32).toString('hex');
+        const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+        const expires = new Date(Date.now() + 10 * 60 * 1000);
+
+        await pool.query(
+            'UPDATE members SET password_reset_token = $1, password_reset_expires = $2 WHERE id = $3',
+            [hashedToken, expires, user.id]
+        );
+
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+        const resetUrl = `${frontendUrl}/reset-password/${resetToken}`;
+
+        await sendPasswordResetEmail(user.email, resetUrl);
+
+        res.json({ message: 'Password reset email sent' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
+const resetPassword = async (req, res) => {
+    const { token } = req.params;
+    const { password } = req.body;
+
+    if (!password) {
+        return res.status(400).json({ message: 'Password is required' });
+    }
+
+    try {
+        const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+        const result = await pool.query(
+            'SELECT id FROM members WHERE password_reset_token = $1 AND password_reset_expires > $2',
+            [hashedToken, new Date()]
+        );
+        const user = result.rows[0];
+
+        if (!user) {
+            return res.status(400).json({ message: 'Password reset token is invalid or has expired' });
+        }
+
+        const hashed = await bcrypt.hash(password, 10);
+
+        await pool.query(
+            'UPDATE members SET password = $1, password_reset_token = NULL, password_reset_expires = NULL WHERE id = $2',
+            [hashed, user.id]
+        );
+
+        res.json({ message: 'Password has been reset successfully' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
+module.exports = { loginUser, registerUser, getProfile, updateProfile, forgotPassword, resetPassword };
