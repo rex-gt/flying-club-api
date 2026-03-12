@@ -17,6 +17,9 @@ jest.mock('pg', () => {
         if (params && params[0] === 'valid@example.com') {
           return Promise.resolve({ rows: [{ id: 5, email: 'valid@example.com', password: '$2a$10$N9qo8uLOickgx2ZMRZoMye', role: 'member', first_name: 'Valid', last_name: 'User' }] });
         }
+        if (params && params[0] === 'taken@example.com') {
+          return Promise.resolve({ rows: [{ id: 99, email: 'taken@example.com' }] });
+        }
         return Promise.resolve({ rows: [] });
       }
       if (lt.includes('select * from members where email')) {
@@ -30,6 +33,12 @@ jest.mock('pg', () => {
       }
       if (lt.includes('select id, member_number') && lt.includes('where id = $1')) {
         return Promise.resolve({ rows: [{ id: 1, member_number: 'M-1', first_name: 'Auth', last_name: 'User', email: 'auth@example.com', role: 'admin', is_active: true }] });
+      }
+      if (lt.includes('select password from members where id')) {
+        return Promise.resolve({ rows: [{ password: '$2a$10$N9qo8uLOickgx2ZMRZoMye' }] });
+      }
+      if (lt.includes('update members') && lt.includes('set')) {
+        return Promise.resolve({ rows: [{ id: 1, member_number: 'M-1', first_name: 'Updated', last_name: 'User', email: 'updated@example.com', role: 'admin', is_active: true }] });
       }
       return Promise.resolve({ rows: [] });
     }
@@ -202,5 +211,87 @@ describe('Auth endpoints', () => {
     const res = await httpRequest(port, '/api/users/profile', 'GET');
     expect(res.statusCode).toBe(401);
     expect(res.body).toHaveProperty('message');
+  });
+
+  test('PUT /api/users/profile updates user profile', async () => {
+    const payload = {
+      first_name: 'Updated',
+      last_name: 'Name',
+      email: 'newemail@example.com',
+      phone: '555-9999'
+    };
+    const res = await httpRequest(port, '/api/users/profile', 'PUT', payload, { Authorization: 'Bearer valid-token' });
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toHaveProperty('message', 'Profile updated successfully');
+    expect(res.body).toHaveProperty('user');
+  });
+
+  test('PUT /api/users/profile fails without authentication', async () => {
+    const payload = {
+      first_name: 'Test',
+      last_name: 'User',
+      email: 'test@example.com'
+    };
+    const res = await httpRequest(port, '/api/users/profile', 'PUT', payload);
+    expect(res.statusCode).toBe(401);
+  });
+
+  test('PUT /api/users/profile fails with missing required fields', async () => {
+    const payload = {
+      first_name: 'Test',
+      email: 'test@example.com'
+    };
+    const res = await httpRequest(port, '/api/users/profile', 'PUT', payload, { Authorization: 'Bearer valid-token' });
+    expect(res.statusCode).toBe(400);
+    expect(res.body).toHaveProperty('message', 'Missing required fields');
+  });
+
+  test('PUT /api/users/profile fails when email is already taken', async () => {
+    const payload = {
+      first_name: 'Test',
+      last_name: 'User',
+      email: 'taken@example.com'
+    };
+    const res = await httpRequest(port, '/api/users/profile', 'PUT', payload, { Authorization: 'Bearer valid-token' });
+    expect(res.statusCode).toBe(409);
+    expect(res.body).toHaveProperty('message', 'Email is already in use');
+  });
+
+  test('PUT /api/users/profile allows password change with correct current password', async () => {
+    const payload = {
+      first_name: 'Test',
+      last_name: 'User',
+      email: 'test@example.com',
+      current_password: 'correctpass',
+      new_password: 'newpass'
+    };
+    const res = await httpRequest(port, '/api/users/profile', 'PUT', payload, { Authorization: 'Bearer valid-token' });
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toHaveProperty('message', 'Profile updated successfully');
+  });
+
+  test('PUT /api/users/profile requires current password when changing password', async () => {
+    const payload = {
+      first_name: 'Test',
+      last_name: 'User',
+      email: 'test@example.com',
+      new_password: 'newpass'
+    };
+    const res = await httpRequest(port, '/api/users/profile', 'PUT', payload, { Authorization: 'Bearer valid-token' });
+    expect(res.statusCode).toBe(400);
+    expect(res.body).toHaveProperty('message', 'Current password is required to change password');
+  });
+
+  test('PUT /api/users/profile rejects wrong current password', async () => {
+    const payload = {
+      first_name: 'Test',
+      last_name: 'User',
+      email: 'test@example.com',
+      current_password: 'wrongpass',
+      new_password: 'newpass'
+    };
+    const res = await httpRequest(port, '/api/users/profile', 'PUT', payload, { Authorization: 'Bearer valid-token' });
+    expect(res.statusCode).toBe(401);
+    expect(res.body).toHaveProperty('message', 'Current password is incorrect');
   });
 });
